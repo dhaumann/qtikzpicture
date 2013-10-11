@@ -97,7 +97,7 @@ public:
     virtual ~QTikzPicture();
 
     /**
-     * Set the an output text stream to @p textStream.
+     * Set the output text stream to @p textStream.
      * Optionally, a precision of floating point numbers can specified.
      * A value of 2 implies numbers in the format '2.34'.
      *
