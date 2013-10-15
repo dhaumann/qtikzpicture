@@ -30,6 +30,7 @@
 #include <QTextStream>
 #include <QPointF>
 #include <QRectF>
+#include <QLineF>
 
 #include <QPainterPath>
 #include <QColor>
@@ -51,14 +52,20 @@ public:
 public:
     inline QString toCoord(const QPointF & pt) const;
     QString toTikzPath(const QPainterPath & path) const;
+    QString toTikzPath(const QPolygonF & polygon) const;
     QString toTikzPath(const QRectF & rect) const;
+    QString toTikzPath(const QLineF & line) const;
+    QString toTikzPath(const QPointF & circleCenter, qreal radius) const;
+
+    void writePath(const QString & cmd, const QString & options, const QString & path);
 };
 
 QString QTikzPicturePrivate::toCoord(const QPointF & pt) const
 {
     QLocale l = QLocale::c();
 
-    return "(" + l.toString(pt.x()) + ", " + l.toString(pt.y()) + ")";
+    return "(" + l.toString(pt.x(), 'g', precision) + ", "
+               + l.toString(pt.y(), 'g', precision) + ")";
 }
 
 QString QTikzPicturePrivate::toTikzPath(const QPainterPath & path) const
@@ -114,6 +121,26 @@ QString QTikzPicturePrivate::toTikzPath(const QPainterPath & path) const
     return pathList.join("\n");
 }
 
+QString QTikzPicturePrivate::toTikzPath(const QPolygonF & polygon) const
+{
+    if (polygon.isEmpty()) return QString();
+
+    const int end = polygon.size() - polygon.isClosed() ? 1 : 0;
+
+    QString path;
+    for (int i = 0; i < end; ++i) {
+        if (i == 0) {
+            path = toCoord(polygon[i]);
+        } else if (i == end - 1) {
+            path += " -- cycle";
+        } else {
+            path += " -- " + toCoord(polygon[i]);
+        }
+    }
+
+    return path;
+}
+
 QString QTikzPicturePrivate::toTikzPath(const QRectF & rect) const
 {
     if (rect.isEmpty()) return QString();
@@ -122,6 +149,36 @@ QString QTikzPicturePrivate::toTikzPath(const QRectF & rect) const
                        + toCoord(rect.bottomRight());
     return path;
 }
+
+QString QTikzPicturePrivate::toTikzPath(const QLineF & line) const
+{
+    const QString path = toCoord(line.p1()) + " -- " + toCoord(line.p2());
+    return path;
+}
+
+QString QTikzPicturePrivate::toTikzPath(const QPointF & circleCenter, qreal radius) const
+{
+    if (radius < 0) return QString();
+
+    QLocale l = QLocale::c();
+    const QString path = toCoord(circleCenter) + " circle (" + l.toString(radius, 'g', precision) + "cm)";
+    return path;
+}
+
+void QTikzPicturePrivate::writePath(const QString & cmd, const QString & options, const QString & path)
+{
+    if (! ts) return;
+    if (path.isEmpty()) return;
+
+    (*ts) << cmd;
+    if (! options.isEmpty()) {
+        (*ts) << "[" << options << "]";
+    }
+    (*ts) << " " << path << ";\n";
+}
+
+
+
 
 
 
@@ -242,70 +299,37 @@ void QTikzPicture::comment(const QString& text)
 
 void QTikzPicture::path(const QPainterPath& path, const QString& options)
 {
-    if (!d->ts) return;
-
-    const QString tikzPath = d->toTikzPath(path);
-    if (tikzPath.isEmpty()) return;
-
-    const QString tikzCommand = options.isEmpty() ? QString("\\path ")
-                                                  : ("\\path[" + options + "] ");
-
-    (*d->ts) << tikzCommand << tikzPath << ";\n";
+    d->writePath("\\path", options, d->toTikzPath(path));
 }
 
 void QTikzPicture::path(const QRectF& rect, const QString& options)
 {
-    if (!d->ts) return;
+    d->writePath("\\path", options, d->toTikzPath(rect));
+}
 
-    const QString tikzPath = d->toTikzPath(rect);
-    if (tikzPath.isEmpty()) return;
-
-    const QString tikzCommand = options.isEmpty() ? QString("\\path ")
-                                                  : ("\\path[" + options + "] ");
-
-    (*d->ts) << tikzCommand << tikzPath << ";\n";
+void QTikzPicture::path(const QPolygonF& polygon, const QString& options)
+{
+    d->writePath("\\path", options, d->toTikzPath(polygon));
 }
 
 void QTikzPicture::clip(const QPainterPath& path)
 {
-    if (!d->ts) return;
-
-    const QString tikzPath = d->toTikzPath(path);
-    if (tikzPath.isEmpty()) return;
-
-    (*d->ts) << "\\clip " << tikzPath << ";\n";
+    d->writePath("\\clip", QString(), d->toTikzPath(path));
 }
 
 void QTikzPicture::clip(const QRectF& rect)
 {
-    if (!d->ts) return;
-
-    const QString tikzPath = d->toTikzPath(rect);
-    if (tikzPath.isEmpty()) return;
-
-    (*d->ts) << "\\clip " << tikzPath << ";\n";
+    d->writePath("\\clip", QString(), d->toTikzPath(rect));
 }
 
 void QTikzPicture::circle(const QPointF& center, qreal radius, const QString& options)
 {
-    if (!d->ts || radius <= 0) return;
-
-    (*d->ts) << "\\draw";
-    if (!options.isEmpty()) {
-        (*d->ts) << "[" << options << "]";
-    }
-    (*d->ts) << " (" << center.x() << ", " << center.y() << ") circle (" << radius << "cm);\n";
+    d->writePath("\\draw", options, d->toTikzPath(center, radius));
 }
 
 void QTikzPicture::line(const QPointF& p, const QPointF& q, const QString& options)
 {
-    if (!d->ts) return;
-
-    (*d->ts) << "\\draw";
-    if (!options.isEmpty()) {
-        (*d->ts) << "[" << options << "]";
-    }
-    (*d->ts) << " (" << p.x() << ", " << p.y() << ") -- (" << q.x() << ", " << q.y() << ");\n";
+    d->writePath("\\draw", options, d->toTikzPath(QLineF(p, q)));
 }
 
 void QTikzPicture::line(const QVector<QPointF>& points, const QString& options)

@@ -35,6 +35,7 @@
 class QTextStream;
 class QColor;
 class QPointF;
+class QPolygonF;
 class QRectF;
 class QPainterPath;
 class QTikzPicturePrivate;
@@ -191,6 +192,11 @@ public:
      * Write the painter path @p path to the output stream.
      * Optionally, you can pass @p options for drawing the path.
      *
+     * Example output:
+     * @code
+     * \path[draw=black, fill=green] (0, 0) -- (0, 1) -- (1, 0) -- cycle;
+     * @endcode
+     *
      * @param path path to draw
      * @param options optional drawing options
      */
@@ -200,14 +206,38 @@ public:
      * Write the rectangle @p rect to the output stream.
      * Optionally, you can pass @p options for drawing the rect.
      *
+     * Example output:
+     * @code
+     * \path[draw=black, fill=green] (0, 0) rectangle (1, 1);
+     * @endcode
+     *
      * @param rect rect to draw
      * @param options optional drawing options
      */
     void path(const QRectF& rect, const QString& options = QString());
 
     /**
+     * Write @p polygon to the output stream.
+     * Optionally, you can pass @p options for drawing the polygon.
+     *
+     * Example output:
+     * @code
+     * \path[draw=black, fill=green] (0, 0) -- (0, 1) -- (1, 0) -- cycle;
+     * @endcode
+     *
+     * @param polygon polygon to draw
+     * @param options optional drawing options
+     */
+    void path(const QPolygonF& polygon, const QString& options = QString());
+
+    /**
      * Clip according to the painter path specified in @p path.
      * This function is useful in combination with beginScope() and endScope().
+     *
+     * Example output:
+     * @code
+     * \clip (0, 0) -- (0, 1) -- (1, 0) -- cycle;
+     * @endcode
      *
      * @param path clipping path
      */
@@ -217,6 +247,11 @@ public:
      * Clip according to the rectangle specified in @p rect.
      * This function is useful in combination with beginScope() and endScope().
      *
+     * Example output:
+     * @code
+     * \clip (0, 0) rectangle (1, 1);
+     * @endcode
+     * 
      * @param path clipping rect
      */
     void clip(const QRectF& rect);
