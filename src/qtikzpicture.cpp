@@ -374,16 +374,6 @@ void QTikzPicture::fill(const QPolygonF& polygon, const QString& options )
     d->writePath("\\fill", options, d->toTikzPath(polygon));
 }
 
-void QTikzPicture::fill(const QLineF& line, const QString& options)
-{
-    d->writePath("\\fill", options, d->toTikzPath(line));
-}
-
-void QTikzPicture::fill(const QPointF& p1, const QPointF & p2, const QString& options)
-{
-    d->writePath("\\fill", options, d->toTikzPath(QLineF(p1, p2)));
-}
-
 void QTikzPicture::fill(const QPointF& circleCenter, qreal radius, const QString& options)
 {
     d->writePath("\\fill", options, d->toTikzPath(circleCenter, radius));

@@ -245,8 +245,6 @@ public:
     void fill(const QPainterPath& path, const QString& options = QString());
     void fill(const QRectF& rect, const QString& options = QString());
     void fill(const QPolygonF& polygon, const QString& options = QString());
-    void fill(const QLineF& line, const QString& options = QString());
-    void fill(const QPointF& p1, const QPointF & p2, const QString& options = QString());
     void fill(const QPointF& circleCenter, qreal radius, const QString& options = QString());
 
     /**
