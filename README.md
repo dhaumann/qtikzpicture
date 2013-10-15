@@ -33,10 +33,10 @@ follow these steps:
 
     QPainterPath path;
     path.moveTo(0, 0);
-    path.moveTo(0, 1);
-    path.moveTo(1, 2);
-    path.moveTo(2, 1);
-    path.moveTo(2, 0);
+    path.lineTo(0, 1);
+    path.lineTo(1, 2);
+    path.lineTo(2, 1);
+    path.lineTo(2, 0);
     path.closeSubpath();
 
     tikzPicture.path(path, "fill=green!50, draw=green!50!black");
