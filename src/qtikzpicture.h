@@ -37,6 +37,7 @@ class QColor;
 class QPointF;
 class QPolygonF;
 class QRectF;
+class QLineF;
 class QPainterPath;
 class QTikzPicturePrivate;
 
@@ -230,6 +231,24 @@ public:
      */
     void path(const QPolygonF& polygon, const QString& options = QString());
 
+    void path(const QLineF& line, const QString& options = QString());
+    void path(const QPointF& p1, const QPointF & p2, const QString& options = QString());
+    void path(const QPointF& circleCenter, qreal radius, const QString& options = QString());
+
+    void draw(const QPainterPath& path, const QString& options = QString());
+    void draw(const QRectF& rect, const QString& options = QString());
+    void draw(const QPolygonF& polygon, const QString& options = QString());
+    void draw(const QLineF& line, const QString& options = QString());
+    void draw(const QPointF& p1, const QPointF & p2, const QString& options = QString());
+    void draw(const QPointF& circleCenter, qreal radius, const QString& options = QString());
+
+    void fill(const QPainterPath& path, const QString& options = QString());
+    void fill(const QRectF& rect, const QString& options = QString());
+    void fill(const QPolygonF& polygon, const QString& options = QString());
+    void fill(const QLineF& line, const QString& options = QString());
+    void fill(const QPointF& p1, const QPointF & p2, const QString& options = QString());
+    void fill(const QPointF& circleCenter, qreal radius, const QString& options = QString());
+
     /**
      * Clip according to the painter path specified in @p path.
      * This function is useful in combination with beginScope() and endScope().
@@ -264,15 +283,6 @@ public:
      * @param options optional drawing options
      */
     void circle(const QPointF& center, qreal radius, const QString& options = QString());
-
-    /**
-     * Draw a line from @p p to @p q with optional @p options.
-     *
-     * @param p starting point of the line
-     * @param q end point of the line
-     * @param options optional drawing options
-     */
-    void line(const QPointF& p, const QPointF& q, const QString& options = QString());
 
     /**
      * Draw the polygonal line @p points with optional @p options.

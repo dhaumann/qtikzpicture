@@ -312,6 +312,84 @@ void QTikzPicture::path(const QPolygonF& polygon, const QString& options)
     d->writePath("\\path", options, d->toTikzPath(polygon));
 }
 
+void QTikzPicture::path(const QLineF& line, const QString& options)
+{
+    d->writePath("\\path", options, d->toTikzPath(line));
+}
+
+void QTikzPicture::path(const QPointF& p1, const QPointF & p2, const QString& options)
+{
+    d->writePath("\\path", options, d->toTikzPath(QLineF(p1, p2)));
+}
+
+void QTikzPicture::path(const QPointF& circleCenter, qreal radius, const QString& options)
+{
+    d->writePath("\\path", options, d->toTikzPath(circleCenter, radius));
+}
+
+
+void QTikzPicture::draw(const QPainterPath& path, const QString& options)
+{
+    d->writePath("\\draw", options, d->toTikzPath(path));
+}
+
+void QTikzPicture::draw(const QRectF& rect, const QString& options)
+{
+    d->writePath("\\draw", options, d->toTikzPath(rect));
+}
+
+void QTikzPicture::draw(const QPolygonF& polygon, const QString& options )
+{
+    d->writePath("\\draw", options, d->toTikzPath(polygon));
+}
+
+void QTikzPicture::draw(const QLineF& line, const QString& options)
+{
+    d->writePath("\\draw", options, d->toTikzPath(line));
+}
+
+void QTikzPicture::draw(const QPointF& p1, const QPointF & p2, const QString& options)
+{
+    d->writePath("\\draw", options, d->toTikzPath(QLineF(p1, p2)));
+}
+
+void QTikzPicture::draw(const QPointF& circleCenter, qreal radius, const QString& options)
+{
+    d->writePath("\\draw", options, d->toTikzPath(circleCenter, radius));
+}
+
+
+void QTikzPicture::fill(const QPainterPath& path, const QString& options)
+{
+    d->writePath("\\fill", options, d->toTikzPath(path));
+}
+
+void QTikzPicture::fill(const QRectF& rect, const QString& options)
+{
+    d->writePath("\\fill", options, d->toTikzPath(rect));
+}
+
+void QTikzPicture::fill(const QPolygonF& polygon, const QString& options )
+{
+    d->writePath("\\fill", options, d->toTikzPath(polygon));
+}
+
+void QTikzPicture::fill(const QLineF& line, const QString& options)
+{
+    d->writePath("\\fill", options, d->toTikzPath(line));
+}
+
+void QTikzPicture::fill(const QPointF& p1, const QPointF & p2, const QString& options)
+{
+    d->writePath("\\fill", options, d->toTikzPath(QLineF(p1, p2)));
+}
+
+void QTikzPicture::fill(const QPointF& circleCenter, qreal radius, const QString& options)
+{
+    d->writePath("\\fill", options, d->toTikzPath(circleCenter, radius));
+}
+
+
 void QTikzPicture::clip(const QPainterPath& path)
 {
     d->writePath("\\clip", QString(), d->toTikzPath(path));
@@ -322,15 +400,6 @@ void QTikzPicture::clip(const QRectF& rect)
     d->writePath("\\clip", QString(), d->toTikzPath(rect));
 }
 
-void QTikzPicture::circle(const QPointF& center, qreal radius, const QString& options)
-{
-    d->writePath("\\draw", options, d->toTikzPath(center, radius));
-}
-
-void QTikzPicture::line(const QPointF& p, const QPointF& q, const QString& options)
-{
-    d->writePath("\\draw", options, d->toTikzPath(QLineF(p, q)));
-}
 
 void QTikzPicture::line(const QVector<QPointF>& points, const QString& options)
 {
