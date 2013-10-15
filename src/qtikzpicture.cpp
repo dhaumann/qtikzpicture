@@ -25,14 +25,16 @@
     THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "tikzexport.h"
+#include "qtikzpicture.h"
 
-#include <QtCore/QTextStream>
-#include <QtCore/QPointF>
-#include <QtCore/QRectF>
+#include <QTextStream>
+#include <QPointF>
+#include <QRectF>
 
-#include <QtGui/QPainterPath>
-#include <QtGui/QColor>
+#include <QPainterPath>
+#include <QColor>
+
+#include <QLocale>
 
 #include <QDebug>
 
@@ -43,14 +45,26 @@ class QTikzPicturePrivate
 {
 public:
     QTextStream* ts;
-    QHash<QString, bool> m_colors;
+    QHash<QString, bool> colors;
+    int precision;
+
+public:
+    QString toCoord(const QPointF & pt);
 };
+
+QString QTikzPicturePrivate::toCoord(const QPointF & pt)
+{
+    QLocale l = QLocale::c();
+
+    return "(" + l.toString(pt.x()) + ", " + l.toString(pt.y()) + ")";
+}
 
 
 QTikzPicture::QTikzPicture()
     : d(new QTikzPicturePrivate())
 {
     d->ts = 0;
+    d->precision = 2;
 }
 
 QTikzPicture::~QTikzPicture()
@@ -60,11 +74,12 @@ QTikzPicture::~QTikzPicture()
 
 void QTikzPicture::setStream(QTextStream* textStream, int precision)
 {
-    ts = textStream;
+    d->ts = textStream;
+    d->precision = qMax(0, precision);
 
-    if (ts) {
-        ts->setRealNumberPrecision(precision);
-        ts->setRealNumberNotation(QTextStream::FixedNotation);
+    if (d->ts) {
+        d->ts->setRealNumberPrecision(precision);
+        d->ts->setRealNumberNotation(QTextStream::FixedNotation);
     }
 }
 
@@ -96,12 +111,12 @@ QString QTikzPicture::registerColor(const QColor& color)
 
     name = 'c' + name;
 
-    if (!m_colors.contains(name)) {
-        if (ts) {
-            (*ts) << "\\definecolor{" << name << "}{rgb}{"
+    if (!d->colors.contains(name)) {
+        if (d->ts) {
+            (*d->ts) << "\\definecolor{" << name << "}{rgb}{"
                   << color.redF() << ", " << color.greenF() << ", " << color.blueF() << "}\n";
         }
-        m_colors[name] = true;
+        d->colors[name] = true;
     }
 
     return name;
@@ -109,164 +124,198 @@ QString QTikzPicture::registerColor(const QColor& color)
 
 void QTikzPicture::begin(const QString& options)
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
     if (options.isEmpty()) {
-        (*ts) << "\\begin{tikzpicture}\n";
+        (*d->ts) << "\\begin{tikzpicture}\n";
     } else {
-        (*ts) << "\\begin{tikzpicture}[" << options << "]\n";
+        (*d->ts) << "\\begin{tikzpicture}[" << options << "]\n";
     }
 }
 
 void QTikzPicture::end()
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
-    (*ts) << "\\end{tikzpicture}\n";
+    (*d->ts) << "\\end{tikzpicture}\n";
 }
 
 void QTikzPicture::beginScope(const QString& options)
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
     if (options.isEmpty()) {
-        (*ts) << "\\begin{scope}\n";
+        (*d->ts) << "\\begin{scope}\n";
     } else {
-        (*ts) << "\\begin{scope}[" << options << "]\n";
+        (*d->ts) << "\\begin{scope}[" << options << "]\n";
     }
 }
 
 void QTikzPicture::endScope()
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
-    (*ts) << "\\end{scope}\n";
+    (*d->ts) << "\\end{scope}\n";
 }
 
 void QTikzPicture::newline(int count)
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
     for (int i = 0; i < count; ++i) {
-        (*ts) << "\n";
+        (*d->ts) << "\n";
     }
 }
 
 void QTikzPicture::comment(const QString& text)
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
-    (*ts) << "% " << text << "\n";
+    (*d->ts) << "% " << text << "\n";
 }
 
 void QTikzPicture::path(const QPainterPath& path, const QString& options)
 {
-    if (!ts || path.isEmpty()) return;
+    if (!d->ts || path.isEmpty()) return;
 
-    int i = 0;
-    for (i = 0; i < path.elementCount(); ++i) {
-        const QPainterPath::Element& element = path.elementAt(i);
+    QStringList pathList;
+    QString currentPath;
+    int currentControlPoint = 0;
 
-        if (element.type == QPainterPath::MoveToElement) {
-            if (i > 0) {
-                (*ts) << " -- cycle;\n";
+    // convert QPainterPath to a TikZ path string
+    for (int i = 0; i < path.elementCount(); i++) {
+        const QPainterPath::Element & element = path.elementAt(i);
+
+        switch (element.type) {
+            case QPainterPath::MoveToElement: {
+                // close current path + append to path list
+                if (!currentPath.isEmpty()) {
+                    currentPath += " -- cycle";
+                    pathList << currentPath;
+                }
+
+                // indent with spaces for better readability
+                const char * indentString = pathList.count() ? "    " : "";
+
+                // start new path
+                currentPath.clear();
+                currentPath += indentString + d->toCoord(element);
+                break;
             }
-            (*ts) << "\\draw[" << options << "] (" << element.x << ", " << element.y << ")";
-        } else if (element.type == QPainterPath::LineToElement) {
-            (*ts) << " -- (" << element.x << ", " << element.y << ")";
+            case QPainterPath::LineToElement: {
+                currentPath += " -- " + d->toCoord(element);
+                break;
+            }
+            case QPainterPath::CurveToElement: {
+                currentPath += " .. controls " + d->toCoord(element);
+                currentControlPoint = 1;
+                break;
+            }
+            case QPainterPath::CurveToDataElement: {
+                if (currentControlPoint == 1) {
+                    currentPath += " and " + d->toCoord(element);
+                    ++currentControlPoint;
+                } else if (currentControlPoint == 2) {
+                    currentPath += " .. " + d->toCoord(element);
+                    currentControlPoint = 0;
+                }
+                break;
+            }
         }
     }
-    if (i > 0) {
-        (*ts) << " -- cycle;\n";
+
+    if (!pathList.isEmpty()) {
+        QString fullPath = pathList.join("\n");
+        (*d->ts) << "\\draw[" << options << "] " << fullPath << ";\n";
     }
 }
 
 void QTikzPicture::path(const QRectF& rect, const QString& options)
 {
-    if (!ts || rect.isEmpty()) return;
+    if (!d->ts || rect.isEmpty()) return;
 
-    (*ts) << "\\path";
+    (*d->ts) << "\\path";
     if (!options.isEmpty()) {
-        (*ts) << "[" << options << "]";
+        (*d->ts) << "[" << options << "]";
     }
-    (*ts) << " (" << rect.left() << ", " << rect.top()
+    (*d->ts) << " (" << rect.left() << ", " << rect.top()
           << ") rectangle (" << rect.right() << ", " << rect.bottom() << ");\n";
 }
 
 void QTikzPicture::clip(const QPainterPath& path)
 {
-    if (!ts || path.isEmpty()) return;
+    if (!d->ts || path.isEmpty()) return;
 
-    (*ts) << "\\clip ";
+    (*d->ts) << "\\clip ";
 
     for (int i = 0; i < path.elementCount(); ++i) {
         const QPainterPath::Element& element = path.elementAt(i);
 
         if (element.type == QPainterPath::MoveToElement) {
             if (i > 0) {
-                (*ts) << " -- cycle";
-                (*ts) << "\n      ";
+                (*d->ts) << " -- cycle";
+                (*d->ts) << "\n      ";
             }
         } else if (element.type == QPainterPath::LineToElement) {
-            (*ts) << " -- ";
+            (*d->ts) << " -- ";
         } else {
             qWarning() << "QTikzPicture::clip: uknown QPainterPath segment type";
         }
-        (*ts) << "(" << element.x << ", " << element.y << ")";
+        (*d->ts) << "(" << element.x << ", " << element.y << ")";
     }
 
-    (*ts) << " -- cycle;\n";
+    (*d->ts) << " -- cycle;\n";
 }
 
 void QTikzPicture::clip(const QRectF& rect)
 {
-    if (!ts || rect.isEmpty()) return;
+    if (!d->ts || rect.isEmpty()) return;
 
-    (*ts) << "\\clip (" << rect.left() << ", " << rect.top()
+    (*d->ts) << "\\clip (" << rect.left() << ", " << rect.top()
           << ") rectangle (" << rect.right() << ", " << rect.bottom() << ");";
 }
 
 void QTikzPicture::circle(const QPointF& center, qreal radius, const QString& options)
 {
-    if (!ts || radius <= 0) return;
+    if (!d->ts || radius <= 0) return;
 
-    (*ts) << "\\draw";
+    (*d->ts) << "\\draw";
     if (!options.isEmpty()) {
-        (*ts) << "[" << options << "]";
+        (*d->ts) << "[" << options << "]";
     }
-    (*ts) << " (" << center.x() << ", " << center.y() << ") circle (" << radius << "cm);\n";
+    (*d->ts) << " (" << center.x() << ", " << center.y() << ") circle (" << radius << "cm);\n";
 }
 
 void QTikzPicture::line(const QPointF& p, const QPointF& q, const QString& options)
 {
-    if (!ts) return;
+    if (!d->ts) return;
 
-    (*ts) << "\\draw";
+    (*d->ts) << "\\draw";
     if (!options.isEmpty()) {
-        (*ts) << "[" << options << "]";
+        (*d->ts) << "[" << options << "]";
     }
-    (*ts) << " (" << p.x() << ", " << p.y() << ") -- (" << q.x() << ", " << q.y() << ");\n";
+    (*d->ts) << " (" << p.x() << ", " << p.y() << ") -- (" << q.x() << ", " << q.y() << ");\n";
 }
 
 void QTikzPicture::line(const QVector<QPointF>& points, const QString& options)
 {
-    if (!ts || points.size() < 2) return;
+    if (!d->ts || points.size() < 2) return;
 
-    (*ts) << "\\draw";
+    (*d->ts) << "\\draw";
     if (!options.isEmpty()) {
-        (*ts) << "[" << options << "]";
+        (*d->ts) << "[" << options << "]";
     }
     const int size = points.size();
     for (int i = 0; i < size - 1; ++i) {
-        (*ts) << " (" << points[i].x() << ", " << points[i].y() << ") --";
+        (*d->ts) << " (" << points[i].x() << ", " << points[i].y() << ") --";
     }
-    (*ts) << " (" << points[size-1].x() << ", " << points[size-1].y() << ");\n";
+    (*d->ts) << " (" << points[size-1].x() << ", " << points[size-1].y() << ");\n";
 }
 
 QTikzPicture& QTikzPicture::operator<< (const QString& text)
 {
-    if (!ts || text.isEmpty()) return *this;
-    (*ts) << text;
+    if (!d->ts || text.isEmpty()) return *this;
+    (*d->ts) << text;
     return *this;
 }
 
@@ -277,13 +326,13 @@ QTikzPicture& QTikzPicture::operator<< (const char* text)
 
 QTikzPicture& QTikzPicture::operator<< (double number)
 {
-    if (ts) (*ts) << number;
+    if (d->ts) (*d->ts) << number;
     return *this;
 }
 
 QTikzPicture& QTikzPicture::operator<< (int number)
 {
-    if (ts) (*ts) << number;
+    if (d->ts) (*d->ts) << number;
     return *this;
 }
 
