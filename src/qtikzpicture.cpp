@@ -225,8 +225,9 @@ void QTikzPicture::path(const QPainterPath& path, const QString& options)
     }
 
     if (!pathList.isEmpty()) {
+        const QString draw = options.isEmpty() ? QString("\\draw ") : ("\\draw[" + options + "] ");
         QString fullPath = pathList.join("\n");
-        (*d->ts) << "\\draw[" << options << "] " << fullPath << ";\n";
+        (*d->ts) << draw << fullPath << ";\n";
     }
 }
 
