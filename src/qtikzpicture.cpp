@@ -49,15 +49,81 @@ public:
     int precision;
 
 public:
-    QString toCoord(const QPointF & pt);
+    inline QString toCoord(const QPointF & pt) const;
+    QString toTikzPath(const QPainterPath & path) const;
+    QString toTikzPath(const QRectF & rect) const;
 };
 
-QString QTikzPicturePrivate::toCoord(const QPointF & pt)
+QString QTikzPicturePrivate::toCoord(const QPointF & pt) const
 {
     QLocale l = QLocale::c();
 
     return "(" + l.toString(pt.x()) + ", " + l.toString(pt.y()) + ")";
 }
+
+QString QTikzPicturePrivate::toTikzPath(const QPainterPath & path) const
+{
+    if (path.isEmpty()) return QString();
+
+    QStringList pathList;
+    QString currentPath;
+    int currentControlPoint = 0;
+
+    // convert QPainterPath to a TikZ path string
+    for (int i = 0; i < path.elementCount(); i++) {
+        const QPainterPath::Element & element = path.elementAt(i);
+
+        switch (element.type) {
+            case QPainterPath::MoveToElement: {
+                // close current path + append to path list
+                if (!currentPath.isEmpty()) {
+                    currentPath += " -- cycle";
+                    pathList << currentPath;
+                }
+
+                // indent with spaces for better readability
+                const char * indentString = pathList.count() ? "    " : "";
+
+                // start new path
+                currentPath.clear();
+                currentPath += indentString + toCoord(element);
+                break;
+            }
+            case QPainterPath::LineToElement: {
+                currentPath += " -- " + toCoord(element);
+                break;
+            }
+            case QPainterPath::CurveToElement: {
+                currentPath += " .. controls " + toCoord(element);
+                currentControlPoint = 1;
+                break;
+            }
+            case QPainterPath::CurveToDataElement: {
+                if (currentControlPoint == 1) {
+                    currentPath += " and " + toCoord(element);
+                    ++currentControlPoint;
+                } else if (currentControlPoint == 2) {
+                    currentPath += " .. " + toCoord(element);
+                    currentControlPoint = 0;
+                }
+                break;
+            }
+        }
+    }
+
+    return pathList.join("\n");
+}
+
+QString QTikzPicturePrivate::toTikzPath(const QRectF & rect) const
+{
+    if (rect.isEmpty()) return QString();
+
+    const QString path = toCoord(rect.topLeft()) + " rectangle "
+                       + toCoord(rect.bottomRight());
+    return path;
+}
+
+
 
 
 QTikzPicture::QTikzPicture()
@@ -176,104 +242,48 @@ void QTikzPicture::comment(const QString& text)
 
 void QTikzPicture::path(const QPainterPath& path, const QString& options)
 {
-    if (!d->ts || path.isEmpty()) return;
+    if (!d->ts) return;
 
-    QStringList pathList;
-    QString currentPath;
-    int currentControlPoint = 0;
+    const QString tikzPath = d->toTikzPath(path);
+    if (tikzPath.isEmpty()) return;
 
-    // convert QPainterPath to a TikZ path string
-    for (int i = 0; i < path.elementCount(); i++) {
-        const QPainterPath::Element & element = path.elementAt(i);
+    const QString tikzCommand = options.isEmpty() ? QString("\\path ")
+                                                  : ("\\path[" + options + "] ");
 
-        switch (element.type) {
-            case QPainterPath::MoveToElement: {
-                // close current path + append to path list
-                if (!currentPath.isEmpty()) {
-                    currentPath += " -- cycle";
-                    pathList << currentPath;
-                }
-
-                // indent with spaces for better readability
-                const char * indentString = pathList.count() ? "    " : "";
-
-                // start new path
-                currentPath.clear();
-                currentPath += indentString + d->toCoord(element);
-                break;
-            }
-            case QPainterPath::LineToElement: {
-                currentPath += " -- " + d->toCoord(element);
-                break;
-            }
-            case QPainterPath::CurveToElement: {
-                currentPath += " .. controls " + d->toCoord(element);
-                currentControlPoint = 1;
-                break;
-            }
-            case QPainterPath::CurveToDataElement: {
-                if (currentControlPoint == 1) {
-                    currentPath += " and " + d->toCoord(element);
-                    ++currentControlPoint;
-                } else if (currentControlPoint == 2) {
-                    currentPath += " .. " + d->toCoord(element);
-                    currentControlPoint = 0;
-                }
-                break;
-            }
-        }
-    }
-
-    if (!pathList.isEmpty()) {
-        const QString draw = options.isEmpty() ? QString("\\draw ") : ("\\draw[" + options + "] ");
-        QString fullPath = pathList.join("\n");
-        (*d->ts) << draw << fullPath << ";\n";
-    }
+    (*d->ts) << tikzCommand << tikzPath << ";\n";
 }
 
 void QTikzPicture::path(const QRectF& rect, const QString& options)
 {
-    if (!d->ts || rect.isEmpty()) return;
+    if (!d->ts) return;
 
-    (*d->ts) << "\\path";
-    if (!options.isEmpty()) {
-        (*d->ts) << "[" << options << "]";
-    }
-    (*d->ts) << " (" << rect.left() << ", " << rect.top()
-          << ") rectangle (" << rect.right() << ", " << rect.bottom() << ");\n";
+    const QString tikzPath = d->toTikzPath(rect);
+    if (tikzPath.isEmpty()) return;
+
+    const QString tikzCommand = options.isEmpty() ? QString("\\path ")
+                                                  : ("\\path[" + options + "] ");
+
+    (*d->ts) << tikzCommand << tikzPath << ";\n";
 }
 
 void QTikzPicture::clip(const QPainterPath& path)
 {
-    if (!d->ts || path.isEmpty()) return;
+    if (!d->ts) return;
 
-    (*d->ts) << "\\clip ";
+    const QString tikzPath = d->toTikzPath(path);
+    if (tikzPath.isEmpty()) return;
 
-    for (int i = 0; i < path.elementCount(); ++i) {
-        const QPainterPath::Element& element = path.elementAt(i);
-
-        if (element.type == QPainterPath::MoveToElement) {
-            if (i > 0) {
-                (*d->ts) << " -- cycle";
-                (*d->ts) << "\n      ";
-            }
-        } else if (element.type == QPainterPath::LineToElement) {
-            (*d->ts) << " -- ";
-        } else {
-            qWarning() << "QTikzPicture::clip: uknown QPainterPath segment type";
-        }
-        (*d->ts) << "(" << element.x << ", " << element.y << ")";
-    }
-
-    (*d->ts) << " -- cycle;\n";
+    (*d->ts) << "\\clip " << tikzPath << ";\n";
 }
 
 void QTikzPicture::clip(const QRectF& rect)
 {
-    if (!d->ts || rect.isEmpty()) return;
+    if (!d->ts) return;
 
-    (*d->ts) << "\\clip (" << rect.left() << ", " << rect.top()
-          << ") rectangle (" << rect.right() << ", " << rect.bottom() << ");";
+    const QString tikzPath = d->toTikzPath(rect);
+    if (tikzPath.isEmpty()) return;
+
+    (*d->ts) << "\\clip " << tikzPath << ";\n";
 }
 
 void QTikzPicture::circle(const QPointF& center, qreal radius, const QString& options)
